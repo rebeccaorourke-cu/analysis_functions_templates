@@ -1,0 +1,85 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+suppressPackageStartupMessages({
+  library(Seurat)
+  library(tidyverse)
+  library(patchwork)
+})
+options(future.globals.maxSize = 20000 * 1024^2)
+```
+
+# 2. Project settings
+```{r}
+samples <- c(
+    "WT_zebrafish_heads",
+    "mut_zebrafish_heads"
+)
+
+markername = "Ha-Brontein" 
+```
+
+marker genes from paper: Ha, S.M., Barnhill, L.M., Li, S. et al. Neurotoxicity of diesel exhaust extracts in zebrafish and its implications for neurodegenerative disease. Sci Rep 12, 19371 (2022). https://doi.org/10.1038/s41598-022-23485-2
+
+```{r}
+markerlist <- list(
+"Pharyngeal.arch" = c("ccl25b", "cxcl12a", "ms4a17a.9"),
+"Cornea" =  c("hpdb", "ogna", "thbs4b", "col1a1a"),
+"Neuronal" =  c("elavl4", "snap25a", "sncb"),
+"Epidermis"	 =  c("cldni", "apoeb", "pfn"),
+"Neural.progenitor" =  c("her15.2", "her4.1", "her4.2", "her15.1"),
+"Skeletal.muscle" = c("myhz1.1.1", "myhb", "tnni2a.1"),
+"Keratin" =  c("cyt1l", "icn2"),
+"Neuronal" =  c("elav14", "snap25a", "sncb"),
+"Oligodendrocyte" =  c("rbp2a", "s100a10a"),
+"Astroglia" =  c("slc1a2b", "gfap", "s100b"),
+"Chondrocyte" =  c("col2a1a", "matn1", "col9a2", "col9a1a"),
+"Microglia" =  c("cc134b.1", "mfap4", "mpeg1.1"),
+"Erythrocyte" =  c("hbae3", "hbbe1.1", "hbbe1.3"),
+"Yolk.syncytial.layer" =  c("tfa", "serpina1l"),
+"Smooth.muscle" =  c("acta2", "tagln", "myl9a"),
+"Liver" =  c("rbp2b", "ces2a"),
+"Placode" =  c("agr2", "muc5.1", "cldnh"),
+"Epithelium" =  c("s100a11", "cldnh", "atp1b1b"),
+"Eye" =  c("krt1-19d", "krt92", "agr1"),
+"Olfactory.bulb" =  c("pvalb5", "ompb", "lhx2a", "trpc2b"),
+"Muscle" =  c("myl10", "myl13", "myl4"),
+"Myeloid.rostral.blood" =  c("cdh5", "gpr182", "sox7", "fabp11a", "plvapb"),
+"Pigment" =  c("defbl1", "apoda.1", "gpnmb"),
+"Oligodendrocyte.2" =  c("mbpa", "cd59", "mbpb"),
+"Yolk.Syncytial.Layer.2" =  c("pvalb9", "ifi30", "selenop"),
+"Neutrophil" =  c("lyz", "npsn", "srgn", "mpx"),
+"Pancreas" =  c("prss1", "prss59.1", "ctrb1", "apoda.2"),
+"Mature.glial.cell" =  c("epd", "ggctb", "soul5")
+)
+names(markerlist)
+```
+
+# 3. read data
+```{r}
+seurat_list <- ReadSeuratObjects(samples)
+```
+
+# 4. marker gene plots
+```{r}
+plot.dir <- CreateSampleDirectories(samples)
+```
+
+```{r, fig.width=30, fig.height=40}
+plotlist <- list()
+for(cluster in names(markerlist)){
+  plotlist[[cluster]] <- DotPlot(seurat_list[[1]], features = markerlist[[cluster]]) + ggtitle(cluster)
+}
+p <- wrap_plots(plotlist)
+p
+filename = file.path(plot.dir[[sample]], paste0(marker_name,"_markers_dotplots.png"))
+ggsave(filename = filename, plot = p)
+```
+
+```{r}
+sessionInfo()
+```
+

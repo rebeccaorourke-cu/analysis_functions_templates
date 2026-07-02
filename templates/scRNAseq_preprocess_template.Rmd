@@ -1,0 +1,134 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# 1. libraries
+```{r}
+library(Seurat)
+library(tidyverse)
+library(patchwork)
+library(openxlsx)
+library(HGNChelper)
+
+options(future.globals.maxSize = 20000 * 1024^2)
+
+source("../functions/load_functions.R")
+```
+
+# 2. Project settings
+```{r}
+samples <- c(
+    "WT_zebrafish_heads"
+)
+
+mitoPattern <- "^mt-"
+
+riboPattern <- "^rp[ls]"
+
+percentMT <- 10
+
+minGenes <- 500
+
+dims <- 1:50
+
+resolution <- 0.8
+```
+
+# 3. Preprocess
+## 3.1 Create Objects
+```{r}
+seurat_list <- lapply(
+    samples,
+    GenerateSeuratObject
+)
+
+names(seurat_list) <- samples
+```
+
+## 3.2 QC
+```{r}
+seurat_list <- lapply(
+    seurat_list,
+    AddQCmetrics,
+    mitoPattern,
+    riboPattern
+)
+
+lapply(
+    seurat_list,
+    PlotQC
+)
+```
+
+## 3.3 filter
+```{r}
+seurat_list <- lapply(
+    seurat_list,
+    FilterCells,
+    percentMT = percentMT,
+    nFeature = minGenes
+)
+```
+
+## 3.4 Generate umaps and clusters
+```{r}
+seurat_list <- lapply(
+    seurat_list,
+    GetUMAPandClusters,
+    dims = dims,
+    resolution = resolution
+)
+```
+
+## 3.5 QC plots and marker spreadsheet for sample
+```{r}
+sample = samples[1]
+```
+
+```{r}
+plot.dir <- CreateSampleDirectories(samples)
+```
+
+```{r}
+filename = file.path(plot.dir[[sample]], "cluster_number_umap.png")
+p <- DimPlot(seurat_list[[sample]], label = T, repel = T) + ggsci::scale_color_igv() + NoLegend()
+p
+ggsave(filename = filename, plot = p)
+```
+
+```{r, fig.width=10, fig.height=10}
+FeaturePlot(seurat_list[[sample]], features = c("percent.mt","percent.ribo",
+                                           "nFeature_RNA","nCount_RNA"))
+```
+
+```{r}
+VlnPlot(seurat_list[[sample]], features = c("percent.ribo","percent.mt",
+                                       "nFeature_RNA","nCount_RNA"), ncol = 2)
+```
+
+```{r}
+filename = file.path(plot.dir[[sample]], "_cluster_DEgenes.xlsx")
+markers <- FindAllMarkers(seurat_list[[sample]], only.pos = T, verbose = F)
+DEgenelist <- list()
+for(cluster in levels(seurat_list[[sample]])){
+  DEgenelist[[cluster]] <- markers[markers$cluster == cluster,]
+}
+write.xlsx(DEgenelist, file = filename)
+```
+
+# 4. save SeuratObject
+```{r}
+if(!dir.exists("RDSfiles")){
+  dir.create("RDSfiles")
+}
+for(sample in samples){
+  filename = paste0("RDSfiles/",sample,".rds")
+  saveRDS(seurat_list[[sample]], file = filename)
+}
+```
+
+```{r}
+sessionInfo()
+```
+

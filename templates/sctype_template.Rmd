@@ -1,0 +1,73 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# 1. libraries
+```{r}
+suppressPackageStartupMessages({
+  library(Seurat)
+  library(tidyverse)
+  library(patchwork)
+  library(openxlsx)
+  library(HGNChelper)
+})
+options(future.globals.maxSize = 20000 * 1024^2)
+```
+
+# 2. Project settings
+```{r}
+samples <- c(
+    "WT_zebrafish_heads",
+    "mut_zebrafish_heads"
+)
+```
+
+# 3. read data
+```{r}
+seurat_list <- ReadSeuratObjects(samples)
+```
+
+# 4. run scType
+```{r}
+plot.dir <- CreateSampleDirectories(samples,
+                        base.dir = "results/sctype_prediction")
+```
+
+Need to have RNA normalized (not SCT normalized) data for scType function
+```{r}
+seurat_list <- lapply(seurat_list, RNANormalize)
+```
+
+```{r}
+db <- read.xlsx(
+  "https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/ScTypeDB_full.xlsx"
+)
+
+tissues <- unique(db$tissueType)
+tissues
+```
+
+```{r}
+source("https://raw.githubusercontent.com/kris-nader/sc-type/master/R/sctype_wrapper.R");
+for(tissue in tissues){
+  filename = file.path(plot.dir[[sample]], paste0(make.names(tissue), "_umap.png"))
+  png(filename = filename,
+    width = 2000,
+    height = 1600,
+    res = 300)
+  seurat_list <- lapply(seurat_list, run_sctype,
+                      known_tissue_type=tissue,
+                      #known_tissue_type=NULL,
+                      custom_marker_file="https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/ScTypeDB_full.xlsx",
+                      name=paste0("sctype_",tissue,"_classification"),
+                      plot=TRUE)
+  dev.off()
+}
+
+```
+
+```{r}
+sessionInfo()
+```
+
